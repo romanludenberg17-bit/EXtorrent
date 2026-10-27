@@ -2,7 +2,7 @@
 
 ExTorrent is an experimental exteraGram plugin project for a compact torrent interface.
 
-## Current status — 0.1.2
+## Current status — 0.1.3
 
 The first UI prototype is committed in `extorrent.plugin`.
 
@@ -42,3 +42,8 @@ The first UI prototype is committed in `extorrent.plugin`.
 - SDK metadata currently requires `>=1.4.5.0`.
 - Reflection hooks are build-sensitive; never assume a private method exists without verifying it on the target build.
 - No API keys or external services are required for the UI prototype.
+
+
+### Drawer registration diagnostics (0.1.3)
+
+The plugin now assigns a stable drawer item ID (`extorrent_drawer`), logs registration success/failure, and exposes the latest registration state in plugin settings. This helps distinguish a failed registration from a registered item that the app UI does not render. The status is diagnostic only; it does not prove that the item is visible. Device/UI behavior has not been verified.
