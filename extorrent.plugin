@@ -13,7 +13,7 @@ __id__ = "extorrent"
 __name__ = "ExTorrent"
 __description__ = "Торрент-панель exteraGram: прототип очереди magnet-ссылок и интерфейса загрузок."
 __author__ = "@romanludenberg17-bit"
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 __icon__ = "exteraPlugins/1"
 __app_version__ = ">=12.10.6"
 __sdk_version__ = ">=1.4.5.0"
@@ -39,8 +39,8 @@ class ExTorrentPlugin(BasePlugin):
             Divider(text="Интерфейс"),
             Switch(
                 key="show_menu_entry",
-                text="Показывать ExTorrent в главном меню",
-                subtext="Временная точка входа до проверки кнопки рядом с поиском",
+                text="Показывать ExTorrent в боковом меню",
+                subtext="Добавляет пункт ExTorrent в боковую панель exteraGram",
                 default=True,
                 on_change=self._refresh_menu,
             ),
@@ -88,7 +88,7 @@ class ExTorrentPlugin(BasePlugin):
         try:
             self._menu_item_id = self.add_menu_item(
                 MenuItemData(
-                    menu_type=MenuItemType.MAIN_MENU,
+                    menu_type=MenuItemType.DRAWER_MENU,
                     text="ExTorrent",
                     subtext="Торрент-загрузки",
                     icon="msg_download",
@@ -97,7 +97,7 @@ class ExTorrentPlugin(BasePlugin):
                 )
             )
         except Exception as exc:
-            self.logger.error("ExTorrent: не удалось добавить пункт меню: %s" % exc)
+            self.logger.error("ExTorrent: не удалось добавить пункт бокового меню: %s" % exc)
 
     def _show_panel(self):
         rows = ["Очередь пока пуста."] if not self._queue else [
