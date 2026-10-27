@@ -13,7 +13,7 @@ __id__ = "extorrent"
 __name__ = "ExTorrent"
 __description__ = "Торрент-панель exteraGram: прототип очереди magnet-ссылок и интерфейса загрузок."
 __author__ = "@romanludenberg17-bit"
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 __icon__ = "exteraPlugins/1"
 __app_version__ = ">=12.10.6"
 __sdk_version__ = ">=1.4.5.0"
@@ -25,6 +25,8 @@ class ExTorrentPlugin(BasePlugin):
     def __init__(self):
         super().__init__()
         self._menu_item_id = None
+        self._menu_error = ""
+        self._menu_regs = 0
         self._queue: List[Dict[str, Any]] = []
 
     def create_settings(self):
@@ -45,7 +47,18 @@ class ExTorrentPlugin(BasePlugin):
                 on_change=self._refresh_menu,
             ),
             Text(
-                text="Состояние",
+                text="Регистрация меню: " + ("ошибка" if self._menu_error else (
+                    "зарегистрировано" if self._menu_item_id else "не зарегистрировано"
+                )),
+                subtext="ID: %s · попыток регистрации: %d · %s" % (
+                    self._menu_item_id or "нет",
+                    self._menu_regs,
+                    self._menu_error or "если пункта нет, перезапусти exteraGram",
+                ),
+                icon="msg_info",
+            ),
+            Text(
+                text="О состоянии загрузок",
                 subtext="UI-прототип. Настоящий BitTorrent-движок ещё не подключён, загрузки пока не выполняются.",
                 icon="msg_info",
             ),
@@ -84,11 +97,15 @@ class ExTorrentPlugin(BasePlugin):
             except Exception:
                 pass
         if not enabled:
+            self._menu_error = "отключено настройкой show_menu_entry"
+            self.logger.info("ExTorrent: пункт бокового меню отключён настройкой")
             return
+        self._menu_regs += 1
         try:
             self._menu_item_id = self.add_menu_item(
                 MenuItemData(
                     menu_type=MenuItemType.DRAWER_MENU,
+                    item_id="extorrent_drawer",
                     text="ExTorrent",
                     subtext="Торрент-загрузки",
                     icon="msg_download",
@@ -96,8 +113,15 @@ class ExTorrentPlugin(BasePlugin):
                     priority=30,
                 )
             )
+            if not self._menu_item_id:
+                self._menu_error = "add_menu_item вернул пустой ID"
+                self.logger.warning("ExTorrent: add_menu_item не вернул ID")
+            else:
+                self._menu_error = ""
+                self.logger.info("ExTorrent: пункт бокового меню зарегистрирован, id=%s" % self._menu_item_id)
         except Exception as exc:
-            self.logger.error("ExTorrent: не удалось добавить пункт бокового меню: %s" % exc)
+            self._menu_error = repr(exc)
+            self.logger.error("ExTorrent: не удалось добавить пункт бокового меню: %s" % self._menu_error)
 
     def _show_panel(self):
         rows = ["Очередь пока пуста."] if not self._queue else [
