@@ -1,0 +1,179 @@
+from __future__ import annotations
+
+from typing import Any, Dict, List
+from urllib.parse import urlparse
+
+from base_plugin import BasePlugin, MenuItemData, MenuItemType
+from ui.alert import AlertDialogBuilder
+from ui.settings import Divider, Header, Input, Text, Switch
+
+__id__ = "extorrent"
+__name__ = "ExTorrent"
+__description__ = "Торрент-панель для exteraGram: очередь magnet-ссылок и интерфейс управления загрузками."
+__author__ = "@romanludenberg17-bit"
+__version__ = "0.1.0"
+__icon__ = "exteraPlugins/1"
+__app_version__ = ">=12.10.6"
+__sdk_version__ = ">=1.4.5.0"
+
+
+class ExTorrentPlugin(BasePlugin):
+    """UI-first prototype. Torrent engine integration is intentionally not faked."""
+
+    def __init__(self):
+        super().__init__()
+        self._menu_item_id = None
+        self._queue: List[Dict[str, Any]] = []
+
+    def create_settings(self):
+        return [
+            Header(text="ExTorrent"),
+            Text(
+                text="Открыть панель загрузок",
+                subtext="Добавляй magnet-ссылки в очередь и смотри состояние прототипа",
+                icon="msg_download",
+                on_click=lambda _v: self._show_panel(),
+            ),
+            Divider(text="Интерфейс"),
+            Switch(
+                key="show_menu_entry",
+                text="Показывать пункт ExTorrent в меню",
+                subtext="Временный способ открыть панель, пока проверяется интеграция с верхней панелью",
+                default=True,
+                on_change=self._refresh_menu,
+            ),
+            Text(
+                text="Состояние движка",
+                subtext="UI-прототип: фактическая загрузка ещё не включена",
+                icon="msg_info",
+            ),
+            Text(
+                text="Что дальше",
+                subtext="Проверка ActionBar/search, затем подключение настоящего BitTorrent-движка и фоновой очереди",
+                icon="msg_help",
+            ),
+        ]
+
+    def on_plugin_load(self):
+        self._refresh_menu(bool(self.get_setting("show_menu_entry", True)))
+
+    def on_plugin_unload(self):
+        item_id = self._menu_item_id
+        self._menu_item_id = None
+        if item_id:
+            try:
+                self.remove_menu_item(item_id)
+            except Exception:
+                pass
+
+    def _refresh_menu(self, enabled=True):
+        old = self._menu_item_id
+        self._menu_item_id = None
+        if old:
+            try:
+                self.remove_menu_item(old)
+            except Exception:
+                pass
+        if not enabled:
+            return
+        try:
+            self._menu_item_id = self.add_menu_item(
+                MenuItemData(
+                    menu_type=MenuItemType.MAIN_MENU,
+                    text="ExTorrent",
+                    subtext="Торрент-загрузки",
+                    icon="msg_download",
+                    on_click=lambda _context: self._show_panel(),
+                    priority=30,
+                )
+            )
+        except Exception as exc:
+            self.logger.error("ExTorrent: не удалось добавить пункт меню: %s" % exc)
+
+    def _show_panel(self):
+        rows = []
+        if not self._queue:
+            rows.append("Очередь пока пуста.")
+        else:
+            for index, item in enumerate(self._queue, 1):
+                rows.append("%d. %s\n   %s" % (index, item["name"], item["status"]))
+        rows.extend([
+            "",
+            "Это ранний UI-прототип. Ссылки сохраняются только в оперативной памяти; скачивание пока не запускается.",
+        ])
+        try:
+            builder = AlertDialogBuilder(self.get_context())
+            builder.set_title("ExTorrent")
+            builder.set_message("\n".join(rows))
+            builder.set_positive_button("Добавить ссылку", lambda *_: self._prompt_link())
+            builder.set_negative_button("Закрыть", lambda *_: None)
+            builder.show()
+        except Exception as exc:
+            self.logger.error("ExTorrent panel error: %s" % exc)
+            self._prompt_link()
+
+    def _prompt_link(self):
+        try:
+            builder = AlertDialogBuilder(self.get_context())
+            builder.set_title("Добавить торрент")
+            builder.set_message("Вставь magnet-ссылку или прямую ссылку на .torrent-файл.")
+            builder.set_edit_text("")
+            builder.set_positive_button("Добавить", lambda dialog, *_: self._add_link_from_dialog(dialog))
+            builder.set_negative_button("Отмена", lambda *_: None)
+            builder.show()
+        except Exception as exc:
+            self.logger.error("ExTorrent add dialog error: %s" % exc)
+            self._show_info("Не удалось открыть окно ввода. Проверь журнал плагина.")
+
+    def _add_link_from_dialog(self, dialog):
+        value = ""
+        try:
+            value = str(dialog.get_edit_text().getText().toString()).strip()
+        except Exception:
+            try:
+                value = str(dialog.getEditText().getText().toString()).strip()
+            except Exception:
+                pass
+        if not value:
+            self._show_info("Ссылка пустая. Вставь magnet-ссылку или URL файла .torrent.")
+            return
+        if not self._valid_torrent_uri(value):
+            self._show_info("Неподдерживаемая ссылка. Нужен magnet:?xt=... или HTTPS/HTTP URL на .torrent-файл.")
+            return
+        name = self._display_name(value)
+        self._queue.append({"name": name, "uri": value, "status": "Ожидает подключения движка"})
+        self._show_info("Добавлено в демонстрационную очередь. Реальная загрузка пока не запущена.")
+
+    @staticmethod
+    def _valid_torrent_uri(value: str) -> bool:
+        low = value.lower()
+        if low.startswith("magnet:?") and "xt=" in low:
+            return True
+        try:
+            parsed = urlparse(value)
+            return parsed.scheme in ("http", "https") and parsed.path.lower().endswith(".torrent")
+        except Exception:
+            return False
+
+    @staticmethod
+    def _display_name(value: str) -> str:
+        low = value.lower()
+        if low.startswith("magnet:"):
+            for part in value.split("&"):
+                if part.lower().startswith("dn="):
+                    return part[3:].replace("+", " ")[:80]
+            return "Magnet-загрузка"
+        try:
+            return urlparse(value).path.rsplit("/", 1)[-1] or "Torrent-файл"
+        except Exception:
+            return "Torrent-файл"
+
+    def _show_info(self, message: str):
+        try:
+            builder = AlertDialogBuilder(self.get_context())
+            builder.set_title("ExTorrent")
+            builder.set_message(message)
+            builder.set_positive_button("ОК", lambda *_: None)
+            builder.show()
+        except Exception as exc:
+            self.logger.error("ExTorrent dialog error: %s" % exc)
