@@ -2,11 +2,11 @@
 
 ExTorrent is an experimental exteraGram plugin project for a compact torrent interface.
 
-## Current status — 0.1.1
+## Current status — 0.1.2
 
 The first UI prototype is committed in `extorrent.plugin`.
 
-- Adds an **ExTorrent** entry to the main menu.
+- Adds an **ExTorrent** entry to the exteraGram side drawer (`DRAWER_MENU`).
 - Opens a Telegram-style panel showing the in-memory queue.
 - Accepts magnet URIs and direct HTTP(S) URLs whose path ends in `.torrent`.
 - Validates input and displays readable status messages.
@@ -24,7 +24,7 @@ The first UI prototype is committed in `extorrent.plugin`.
 
 ## Implementation plan
 
-1. **Toolbar integration:** inspect the exact exteraGram build and locate the real search/action-bar view and its lifecycle. Add an icon only after its host and method signatures are verified. The current main-menu item is a fallback entry point, not the requested toolbar button.
+1. **Toolbar integration:** the side-drawer entry is now implemented through the documented `DRAWER_MENU` placement. The separate translucent icon beside search is still not implemented; locating that private view requires build-specific inspection.
 2. **Torrent engine:** evaluate a compatible native BitTorrent engine. The Python plugin runtime does not itself provide libtorrent or native JNI libraries. A real engine needs compatible packaged native code or a supported engine bridge; the UI must never report fake progress.
 3. **Download lifecycle:** implement start/pause/resume/cancel, storage permissions, queue persistence and cleanup.
 4. **Testing:** install on the target app version, verify plugin enable/disable, toolbar placement, input validation, app restart and actual transfer metrics.
