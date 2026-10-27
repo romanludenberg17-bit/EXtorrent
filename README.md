@@ -1,30 +1,44 @@
 # ExTorrent for exteraGram
 
-ExTorrent is an experimental exteraGram plugin project for adding a lightweight torrent-download interface to the Telegram client.
+ExTorrent is an experimental exteraGram plugin project for a compact torrent interface.
 
-## Goals
+## Current status — 0.1.1
 
-- A subtle, transparent torrent icon beside the search control, matching the current theme.
-- A compact downloads panel with progress, download/upload speed, pause/resume and remove controls.
-- Add downloads from magnet links and `.torrent` files.
-- Persist the queue and download location across app restarts.
-- Clear diagnostics and safe cleanup when the plugin unloads.
+The first UI prototype is committed in `extorrent.plugin`.
 
-## Technical plan
+- Adds an **ExTorrent** entry to the main menu.
+- Opens a Telegram-style panel showing the in-memory queue.
+- Accepts magnet URIs and direct HTTP(S) URLs whose path ends in `.torrent`.
+- Validates input and displays readable status messages.
+- Removes its menu entry when the plugin unloads.
 
-1. Verify the target exteraGram build and locate the actual search/action-bar view before hooking it. Do not guess private method signatures or silently patch unrelated views.
-2. Build and test a small UI-only prototype first.
-3. Evaluate whether a native BitTorrent engine can run reliably in the plugin runtime. If not, document the required native component or optional local/remote engine instead of shipping a fake downloader.
-4. Add torrent metadata parsing, transfer lifecycle, storage permissions, and persistence only after the UI hook and engine are verified.
+**Important:** this is only a UI prototype. It does not download data, resolve magnet metadata, persist the queue, or run a background service yet. Do not treat queued links as active downloads.
 
-## Compatibility
+## Target experience
 
-The initial target is exteraGram with the Python plugin SDK. SDK documentation describes lifecycle hooks, menu items, and Xposed-style method hooks, but a toolbar button beside search needs build-specific verification.
+- A small transparent/monochrome torrent icon beside the search control.
+- A modern download panel with progress, speeds, size, ETA, pause/resume and removal.
+- Add magnet links, local `.torrent` files and direct torrent URLs.
+- Persist queue and save location across restarts.
+- Reliable background transfers with lifecycle-safe cleanup.
 
-- SDK docs: https://plugins.exteragram.app/docs
-- Plugin class and hooks: https://plugins.exteragram.app/docs/plugin-class
-- Xposed method hooking: https://plugins.exteragram.app/docs/xposed-hooking
+## Implementation plan
 
-## Status
+1. **Toolbar integration:** inspect the exact exteraGram build and locate the real search/action-bar view and its lifecycle. Add an icon only after its host and method signatures are verified. The current main-menu item is a fallback entry point, not the requested toolbar button.
+2. **Torrent engine:** evaluate a compatible native BitTorrent engine. The Python plugin runtime does not itself provide libtorrent or native JNI libraries. A real engine needs compatible packaged native code or a supported engine bridge; the UI must never report fake progress.
+3. **Download lifecycle:** implement start/pause/resume/cancel, storage permissions, queue persistence and cleanup.
+4. **Testing:** install on the target app version, verify plugin enable/disable, toolbar placement, input validation, app restart and actual transfer metrics.
 
-Early development. No downloads are advertised as working until the torrent engine and UI integration are tested on-device.
+## Compatibility references
+
+- exteraGram SDK overview: https://plugins.exteragram.app/docs
+- Plugin class, lifecycle and menu items: https://plugins.exteragram.app/docs/plugin-class
+- Xposed-style method hooks: https://plugins.exteragram.app/docs/xposed-hooking
+- Alert dialog API: https://plugins.exteragram.app/docs/alert-dialog-builder
+
+## Development notes
+
+- Target app metadata currently requires exteraGram `>=12.10.6`.
+- SDK metadata currently requires `>=1.4.5.0`.
+- Reflection hooks are build-sensitive; never assume a private method exists without verifying it on the target build.
+- No API keys or external services are required for the UI prototype.
